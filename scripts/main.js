@@ -46,9 +46,11 @@ timefctr = 1.0;         //time factor
 time = 0;               //time increment
 
 normal = true; //NORMAL EXECUTION VARIABLE
+currrent_loc = 0;
 
 //Global initializations
 objects = [];
+var targ_fps = 60;
 
 canvas = null;
 c = null;
@@ -73,10 +75,14 @@ key_rel = [];
 key_codes = [38, 40, 37, 39, 32 ,32 ,32]; // key codes
 
 var DTYPE = {
-    none : -1,
-    physical : 0,
-    magic : 1,
-    pure : 2
+    raw : [0,0,0],
+    basic : [1,1,1],
+    pierce : [1,0,0],
+    slash : [1,1,0],
+    blunt : [0,1,0],
+    phy_mjk : [0,1,1],
+    ene_mjk : [0,0,1],
+    eth_mjk : [1,0,1]
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -104,6 +110,8 @@ window.onload = function() {
 
     objects.push(new Unit(300,400,0));
     objects.push(new Unit(500,400,1));
+
+    console.log(mitigation([750,500,0],[0.5,1.0,0]));
 
     //MAIN GAME LOOP
     setInterval(function() {
@@ -135,7 +143,7 @@ window.onload = function() {
             key_release[i] = false;
         }
 
-    }, 1000 / 60); //60fps TODO: find better/faster way to do this
+    }, 1000 / targ_fps); //60fps TODO: find better/faster way to do this
 };
 
 

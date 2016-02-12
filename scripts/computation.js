@@ -26,6 +26,14 @@ if (CP.lineTo) {
     }
 }
 
+Array.prototype.max = function() {
+    return Math.max.apply(null, this);
+};
+
+Array.prototype.min = function() {
+    return Math.min.apply(null, this);
+};
+
 function contains(a, obj) {
     for (var i = 0; i < a.length; i++) {
         if (a[i] === obj) {
@@ -41,9 +49,28 @@ function remove(a, obj) {
         a.splice(i, 1);
     }
 }
+
+function componentToHex(c) {
+    var hex = c.toString(16);
+    return hex.length == 1 ? "0" + hex : hex;
+}
+
+function rgbToHex(r, g, b) {
+    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Math Functions
 ////////////////////////////////////////////////////////////////////////////////
+
+
+function getRandomRange(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+function getRandomRangeInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 //FOR SAFARI, safari does not like sign function :(
 Math.sign = Math.sign || function(x) {

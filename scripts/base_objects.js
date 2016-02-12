@@ -32,6 +32,34 @@ function checkOnScreen(o, s) {
     return o.on_screen;
 }
 
+function dmgText(x, y, value, life, col) {
+    Display.call(this, x+getRandomRangeInt(-8,8), y+getRandomRangeInt(-8,8), 1, 1);
+    this.maxlife = this.life = life;
+    this.val = Math.round(value);
+    this.col = col;
+    this.hsp = getRandomRangeInt(-1,1);
+    this.vsp = getRandomRangeInt(-4,-3);
+
+    this.draw = function () {
+        c.font = "900 16px Impact";
+        c.lineWidth = "1px";
+        c.fillStyle = defToColor(this.col);
+        c.strokeStyle = "black";
+        c.fillText(this.val, this.x, this.y);
+        c.strokeText(this.val, this.x, this.y);
+    };
+
+    this.update = function () {
+        this.life--
+        if (this.life <= 0) {
+            remove(objects, this);
+        }
+        this.vsp += 0.15;
+        this.x += this.hsp;
+        this.y += this.vsp;
+    };
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // object PARENT / all objects that are not entities (powerups, projectiles, blocks)
 ////////////////////////////////////////////////////////////////////////////////
@@ -39,18 +67,25 @@ var RES = {
     mana: 0
 };
 
+function defToColor(col) {
+    var max = Math.max.apply(null, col);
+    if (max === 0)
+        return "#444";
+    return rgbToHex(~~(255 * col[0] / max), ~~(255 * col[1] / max), ~~(255 * col[2] / max));
+}
+
 function Unit(x, y, faction) {
     Display.call(this, x, y, 64, 64);
     this.obj = 'unit';
 
-    this.maxhp = 100;
-    this.hp = 100;
+    this.maxhp = 1000 + 5000 * Math.random();
+    this.hp = this.maxhp;
 
     this.resource = 'mana';
 
 
-    this.att = [255, 0, 0];
-    this.def = [0, 0, 0];
+    this.att = [1.0, 0, 0];
+    this.def = [~~(1000 * Math.random()), ~~(200 * Math.random()), ~~(100 * Math.random())];
 
     this.passives = [];
     this.crowd_ctrl = [];
@@ -58,6 +93,10 @@ function Unit(x, y, faction) {
     this.can_move = true;
     this.can_attack = true;
     this.can_cast = true;
+    this.in_air = false;
+    this.air_dx = 0;
+    this.air_dy = 0;
+    this.air_z = 0;
 
     this.movespeed = 325;
     this.attspeed = 1.0;
@@ -65,8 +104,8 @@ function Unit(x, y, faction) {
     if (faction != 0)
         applyPassive(this, this, new p_UnmitigatedDamage());
     else {
-        //applyPassive(this, this, new p_DoT(20, 0.1));
-        //applyPassive(this, this, new p_DoT(5, 0.1));
+        //applyPassive(this, this, new p_DoT(20, 1.0));
+        //applyPassive(this, this, new p_DoT(50, 2.0));
     }
 
 
@@ -74,6 +113,10 @@ function Unit(x, y, faction) {
     this.faction = faction;
 
     this.draw = function () {
+        if (this.hp <= 0) {
+            this.hp = 0;
+        }
+
         c.fillStyle = "red";
         if (this.faction != 0)
             c.fillStyle = "blue";
@@ -81,15 +124,38 @@ function Unit(x, y, faction) {
         c.fillRect(this.x, this.y, this.width, this.height);
 
         var wid = 100;
+        c.fillStyle = defToColor(this.def);
+        var w = 1+(1-mitigation(this.def,DTYPE.basic))*12;
+        c.fillRect(this.x - w, this.y - 32 - w, wid + w*2, 16 + w*2);
         c.fillStyle = "black";
         c.fillRect(this.x, this.y - 32, wid, 16);
         c.fillStyle = "red";
         c.fillRect(this.x, this.y - 32, wid * this.dhp / this.maxhp, 16);
+
+
+        c.beginPath();
+        c.strokeStyle = "black";
+        c.lineWidth = "3";
+        c.rect(this.x, this.y - 32, wid * this.hp / this.maxhp, 16);
+        c.stroke();
         c.fillStyle = "lime";
-        c.fillRect(this.x, this.y - 32, wid * this.hp / this.maxhp, 16);
+        c.fill();
+
+        c.lineWidth = "1";
+        c.globalAlpha = 0.5;
+        for (var i = 0; i < ~~(this.hp / 100); i++) {
+            c.beginPath();
+            c.moveTo(this.x + (wid * 100 / this.maxhp) * (i + 1), this.y - 31);
+            c.lineTo(this.x + (wid * 100 / this.maxhp) * (i + 1), this.y - 17);
+            c.stroke();
+        }
+        c.globalAlpha = 1.0;
+
+        c.fillText(~~this.hp + " / " + ~~this.maxhp + " (" + this.def + ")", this.x, this.y - 48);
     };
 
     this.update = function () {
+
         this.dhp += (this.hp - this.dhp) * 0.03;
 
         tickWithLoc(LOC.constant, this, this, []);
@@ -97,9 +163,13 @@ function Unit(x, y, faction) {
         if (key_press[0] == true) {
             for (var i = 0; i < objects.length; i++) {
                 var o = objects[i];
-                if (o.obj = 'unit') {
-                    if (o.faction != this.faction)
-                        damage(this, o, 50);
+                if (o.obj === 'unit') {
+                    if (o.faction != this.faction) {
+                        damage(this, o, 100, [Math.random(), Math.random(), Math.random()]);
+                        if (this.faction != 0) {
+                            applyPassive(this, o, new p_DoT(50, 2.0));
+                        }
+                    }
                 }
             }
         }
@@ -107,14 +177,26 @@ function Unit(x, y, faction) {
 }
 
 
-function mitigation(defence) {
+function basicMit(def){
+    var c = 500;
+    return c/(def + c);
+}
+
+function mitigation(def,type) {
     normal = true;
 
-    return 0.5;
+    var val = 0;
+
+    val += def[0] * type[0];
+    val += def[1] * type[1];
+    val += def[2] * type[2];
+    val /= type[0] + type[1] + type[2];
+
+    return basicMit(val);
 }
 
 function damage(source, target, damage, type) {
-    var type = type || 0;
+    var type = type || DTYPE.basic;
     normal = true;
 
     var e = dblexeWithLocs(LOC.att_before_mit, LOC.def_before_mit, source, target, [damage, type]);
@@ -122,7 +204,7 @@ function damage(source, target, damage, type) {
     type = e[1];
 
     if (normal) {
-        var mitdmg = damage * mitigation(0);
+        var mitdmg = damage * mitigation(target.def,type);
     }
 
     e = dblexeWithLocs(LOC.att_after_mit, LOC.def_after_mit, source, target, [damage, mitdmg, type]);
@@ -130,6 +212,7 @@ function damage(source, target, damage, type) {
     mitdmg = e[1];
     type = e[2];
 
+    objects.push(new dmgText(target.x, target.y, mitdmg, 60, type));
     if (normal) {
         target.hp -= mitdmg;
     }

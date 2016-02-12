@@ -2,34 +2,33 @@
  * Created by shrenilpatel on 2016-02-11.
  */
 var LOC = {
-    constant: 0, //none
+    none: 0,
+    constant: 1, //none
 
-    att_after_mit: 1, //damage, mit, type
-    def_after_mit: 2,
+    att_after_mit: 2, //dmg, mit, type
+    def_after_mit: 3, //dmg, mit, type
 
-    att_before_mit: 3, //damage, type
-    def_before_mit: 4,
+    att_before_mit: 4, //dmg, type
+    def_before_mit: 5, //dmg, type
 
-    SOMETHING: 5,
+    inc_any_buff: 6, //buff
+    out_any_buff: 7, //buff
 
-    inc_any_buff: 6,
-    out_any_buff: 7,
+    inc_buff: 8, //buff
+    out_buff: 9, //buff
 
-    inc_buff: 8,
-    out_buff: 9,
+    inc_debuff: 10, //buff
+    out_debuff: 11, //buff
 
-    inc_debuff: 10,
-    out_debuff: 11,
+    out_spell: 12, //buff
+    in_spell: 13, //buff
 
-    out_spell: 12,
-    in_spell: 13,
+    def_buff_expire: 14, //buff
+    def_debuff_expire: 15, //buff
+    def_any_expire: 16, //buff
 
-    def_buff_expire: 14, //passive
-    def_debuff_expire: 15, //passive
-    def_any_expire: 16,
-
-    inc_heal: 17, //amount
-    out_heal: 18,
+    inc_heal: 17, //heal
+    out_heal: 18, //heal
 
 };
 
@@ -70,16 +69,17 @@ function removePassive(source, target, p) {
 }
 
 function tickWithLoc(loc, source, target, list) {
-    //source.passives.sort(passiveCompare);
+    currrent_loc = loc;
+
     for (var i = 0; i < source.passives.length; i++) {
         var p = source.passives[i];
-        if (contains(p.loc, loc) && time % p.tick == 0) {
+
+        p.timer++;
+        if (p.dur != -1 && p.timer > p.dur) {
+            removePassive(source, source, p);
+        }
+        if (contains(p.loc, loc) && p.timer % p.tick == 0) {
             list = p.process(source, target, list);
-            if (p.dur != -1) {
-                if (--p.dur <= 0) {
-                    removePassive(source, source, p)
-                }
-            }
         }
     }
     return list;
@@ -91,14 +91,14 @@ function dblexeWithLocs(locSrc, locTar, source, target, list) {
     for (var i = 0; i < source.passives.length; i++) {
         var p = source.passives[i];
         if (contains(p.loc, locSrc)) {
-            plist.push([p,source,target]);
+            plist.push([p, source, target, locSrc]);
         }
     }
 
     for (i = 0; i < target.passives.length; i++) {
         p = target.passives[i];
         if (contains(p.loc, locTar)) {
-            plist.push([p,target,source]);
+            plist.push([p, target, source, locTar]);
         }
     }
 
@@ -106,6 +106,7 @@ function dblexeWithLocs(locSrc, locTar, source, target, list) {
 
     for (i = 0; i < plist.length; i++) {
         p = plist[i];
+        currrent_loc = p[3];
         list = p[0].process(p[1], p[2], list);
     }
 
@@ -113,6 +114,7 @@ function dblexeWithLocs(locSrc, locTar, source, target, list) {
 }
 
 function executeWithLoc(loc, source, target, list) {
+    currrent_loc = loc;
     //source.passives.sort(passiveCompare);
     for (var i = 0; i < source.passives.length; i++) {
         var p = source.passives[i];
@@ -127,16 +129,17 @@ function p_passive(name, loc, buff, cat, dur, tick) {
     this.id = ID++;
     this.loc = loc || [LOC.constant];
     this.prio = 5;
-    this.tick = tick || 15;
-    this.dur = ~~(dur * 60 / this.tick) || -1;
+    this.tick = tick || ~~(targ_fps/2);
+    this.dur = ~~(dur * targ_fps) || -1;
     this.source = null;
     this.buff = buff || BTYPE.neutral;
     this.name = name || "NAME ERROR";
     this.cat = cat || ['error'];
     this.dmg = 0;
+    this.timer = 0;
 
     this.process = function (source, target, list) {
-        //basic
+        console.log(this.name + " null PROCESS");
         return null;
     };
     this.expire = function () {
@@ -164,8 +167,9 @@ function p_UnmitigatedDamage() {
         ['unique']
     );
 
+    //dmg, mit, type
     this.process = function (source, target, list) {
-        return [list[0], list[0], DTYPE.pure];
+        return [list[0], list[0], DTYPE.raw];
     }
 }
 
@@ -177,16 +181,16 @@ function p_Invincible() {
         BTYPE.buff,
         ['unique']
     );
-
     this.prio = 1;
 
+    //dmg, type
     this.process = function (source, target, list) {
-        return [0, DTYPE.none];
+        return [0, DTYPE.raw];
     }
 }
 
 //basic DoT
-function p_DoT(dmg, dur, tick) {
+function p_DoT(dmg, dur, tick, type) {
     p_passive.call(this,
         "Test DoT",
         [LOC.constant],
@@ -197,9 +201,11 @@ function p_DoT(dmg, dur, tick) {
     );
 
     this.dmg = dmg;
+    this.type = type || DTYPE.eth_mjk;
 
+    //[none]
     this.process = function (source, target) {
-        damage(this.source, target, this.dmg, this);
+        damage(this.source, target, this.dmg, this.type);
         return [];
     }
 }
