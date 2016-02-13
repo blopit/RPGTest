@@ -1,14 +1,74 @@
+function basicMit(def) {
+    var c = 100;
+    return c / (def + c);
+}
+
+function averageCol(def,type) {
+    var val = 0;
+
+    val += def[0] * type[0];
+    val += def[1] * type[1];
+    val += def[2] * type[2];
+    val /= type[0] + type[1] + type[2];
+
+    return val;
+}
+
+function mitigation(def, type) {
+    normal = true;
+    return basicMit(averageCol(def,type));
+}
+
+function heal(source, target, value) {
+
+}
+
+function damage(source, target, damage, type) {
+    var type = type || DTYPE.basic;
+    var mitdmg = 0;
+    normal = true;
+
+    var e = dblexeWithLocs(LOC.att_before_mit, LOC.def_before_mit, source, target, {dmg: damage, type: type});
+    damage = e.dmg;
+    type = e.type;
+
+    if (normal) {
+        mitdmg = damage * mitigation(target.def, type);
+    }
+
+    e = dblexeWithLocsAlt(LOC.att_after_mit, LOC.def_after_mit,
+        LOC.att_alter, LOC.def_alter,
+        source, target, {dmg: damage, mit: mitdmg, type: type});
+    damage = e.dmg;
+    mitdmg = e.mit;
+    type = e.type;
+
+    objects.push(new DmgText(target.cx, target.cy - 64, mitdmg,
+        40, type));
+
+    if (mitdmg == 0) {
+        //invincible
+    }else if (mitdmg < 0) {
+        heal(source, target, -mitdmg);
+        return;
+    }
+
+    if (normal) {
+        target.hp -= mitdmg;
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Drawing Functions
 ////////////////////////////////////////////////////////////////////////////////
 
 var CP = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
 if (CP.lineTo) {
-    CP.dashedLine = function(x, y, x2, y2, da) {
-        if (!da) da = [10,5];
+    CP.dashedLine = function (x, y, x2, y2, da) {
+        if (!da) da = [10, 5];
         this.save();
-        var dx = (x2-x), dy = (y2-y);
-        var len = Math.sqrt(dx*dx + dy*dy);
+        var dx = (x2 - x), dy = (y2 - y);
+        var len = Math.sqrt(dx * dx + dy * dy);
         var rot = Math.atan2(dy, dx);
         this.translate(x, y);
         this.moveTo(0, 0);
@@ -19,19 +79,47 @@ if (CP.lineTo) {
         while (len > x) {
             x += da[di++ % dc];
             if (x > len) x = len;
-            draw ? this.lineTo(x, 0): this.moveTo(x, 0);
+            draw ? this.lineTo(x, 0) : this.moveTo(x, 0);
             draw = !draw;
         }
         this.restore();
     }
 }
 
-Array.prototype.max = function() {
+function roundRect(c, x, y, w, h, r, fill, stroke) {
+    w = Math.ceil(w);
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    if (r < 0) r = 0;
+    if (w < 3) stroke = false;
+
+    c.beginPath();
+    c.moveTo(x+r, y);
+    c.arcTo(x+w, y,   x+w, y+h, r);
+    c.arcTo(x+w, y+h, x,   y+h, r);
+    c.arcTo(x,   y+h, x,   y,   r);
+    c.arcTo(x,   y,   x+w, y,   r);
+    c.closePath();
+    if (fill) {
+        c.fill();
+    }
+    if (stroke) {
+        c.stroke();
+    }
+}
+
+//////////////////////////////////////////
+
+Array.prototype.max = function () {
     return Math.max.apply(null, this);
 };
 
-Array.prototype.min = function() {
+Array.prototype.min = function () {
     return Math.min.apply(null, this);
+};
+
+Array.prototype.clone = function () {
+    return this.slice(0);
 };
 
 function contains(a, obj) {
@@ -45,7 +133,7 @@ function contains(a, obj) {
 
 function remove(a, obj) {
     var i = a.indexOf(obj);
-    if(i != -1) {
+    if (i != -1) {
         a.splice(i, 1);
     }
 }
@@ -59,10 +147,29 @@ function rgbToHex(r, g, b) {
     return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
 
+function defToColor(col) {
+    if (col[0] == -1) {
+        return "rgba(0,0,0,0)";
+    }
+    console.log(col);
+
+    var max = Math.max.apply(null, col);
+    if (max === 0)
+        return "#000";
+    return rgbToHex(~~(255 * col[0] / max), ~~(255 * col[1] / max), ~~(255 * col[2] / max));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Math Functions
 ////////////////////////////////////////////////////////////////////////////////
 
+function log(val, base) {
+    return Math.log(val) / Math.log(base);
+}
+
+function choose(array) {
+    return array[Math.floor(Math.random() * array.length)];
+}
 
 function getRandomRange(min, max) {
     return Math.random() * (max - min) + min;
@@ -73,32 +180,31 @@ function getRandomRangeInt(min, max) {
 }
 
 //FOR SAFARI, safari does not like sign function :(
-Math.sign = Math.sign || function(x) {
-  x = +x;
-  if (x === 0 || isNaN(x)) {
-    return x;
-  }
-  return x > 0 ? 1 : -1;
-}
+Math.sign = Math.sign || function (x) {
+        x = +x;
+        if (x === 0 || isNaN(x)) {
+            return x;
+        }
+        return x > 0 ? 1 : -1;
+    }
 
 //distance between two points (x1,y1) and (x2,y2)
-function distPoints(x1,y1,x2,y2){
-    return Math.sqrt(Math.pow(x2-x1,2) + Math.pow(y2-y1,2));
+function distPoints(x1, y1, x2, y2) {
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
 }
 
 //angle between two points starts in East quadrant returns PI <-> -PI
-function anglePoints(x1,y1,x2,y2){
-    return Math.atan2(y2-y1,x2-x1);
+function anglePoints(x1, y1, x2, y2) {
+    return Math.atan2(y2 - y1, x2 - x1);
 }
 
 //returns value (q) mitigate by an amount of (fr)
-function fric(q,fr){
+function fric(q, fr) {
     var s = q;
     if (Math.abs(s) > fr) {
         s -= fr * Math.sign(s)
     }
-    else
-    {
+    else {
         s = 0;
     }
     return s;
@@ -109,11 +215,11 @@ function fric(q,fr){
 ////////////////////////////////////////////////////////////////////////////////
 
 //Rectangle collsion with Rectangle
-function colRxR(rect1, rect2){
+function colRxR(rect1, rect2) {
     return (rect1.x < rect2.x + rect2.width &&
-        rect1.x + rect1.width > rect2.x &&
-        rect1.y < rect2.y + rect2.height &&
-        rect1.height + rect1.y > rect2.y);
+    rect1.x + rect1.width > rect2.x &&
+    rect1.y < rect2.y + rect2.height &&
+    rect1.height + rect1.y > rect2.y);
 }
 
 //Rectangle collsion with line segment with endpoints p1,p2
@@ -171,42 +277,42 @@ function colRxL(rect, p1, p2) {
 
 //simple movement
 //adjusts x and y of obj based on vertical and horizontal speeds
-function simpMove(obj,b){
+function simpMove(obj, b) {
 
     //Loop though values adn adjust accordingly
-    if (obj.vsp > 0){
-        for (var i = 0; i < obj.vsp*timefctr; i++){
-            if (!colPlace(obj,b,0,1)){
+    if (obj.vsp > 0) {
+        for (var i = 0; i < obj.vsp * timefctr; i++) {
+            if (!colPlace(obj, b, 0, 1)) {
                 obj.y += 1;
-            }else{
+            } else {
                 obj.vsp = 0;
                 break;
             }
         }
-    } else if (obj.vsp < 0){
-        for (var i = 0; i < -obj.vsp*timefctr; i++){
-            if (!colPlace(obj,b,0,-1)){
+    } else if (obj.vsp < 0) {
+        for (var i = 0; i < -obj.vsp * timefctr; i++) {
+            if (!colPlace(obj, b, 0, -1)) {
                 obj.y -= 1;
-            }else{
+            } else {
                 obj.vsp = 0;
                 break;
             }
         }
     }
-    if (obj.hsp > 0){
-        for (var i = 0; i < obj.hsp*timefctr; i++){
-            if (!colPlace(obj,b,1,0)){
+    if (obj.hsp > 0) {
+        for (var i = 0; i < obj.hsp * timefctr; i++) {
+            if (!colPlace(obj, b, 1, 0)) {
                 obj.x += 1;
-            }else{
+            } else {
                 obj.hsp -= obj.hsp;
                 break;
             }
         }
-    } else if (obj.hsp < 0){
-        for (var i = 0; i < -obj.hsp*timefctr; i++){
-            if (!colPlace(obj,b,-1,0)){
+    } else if (obj.hsp < 0) {
+        for (var i = 0; i < -obj.hsp * timefctr; i++) {
+            if (!colPlace(obj, b, -1, 0)) {
                 obj.x -= 1;
-            }else{
+            } else {
                 obj.hsp -= obj.hsp;
                 break;
             }
@@ -214,82 +320,82 @@ function simpMove(obj,b){
     }
 }
 
-function slopeMove(obj,b,slope,xsp,ysp){
-    var xsp = xsp || obj.hsp*timefctr;
-    var ysp = ysp || obj.vsp*timefctr;
+function slopeMove(obj, b, slope, xsp, ysp) {
+    var xsp = xsp || obj.hsp * timefctr;
+    var ysp = ysp || obj.vsp * timefctr;
 
     var done = false;
-    if (xsp > 0){
-        for (var i = 0; i < xsp; i++){
+    if (xsp > 0) {
+        for (var i = 0; i < xsp; i++) {
             //adjust y value to account for slopes
-            for (var s = -slope; s <= slope; s++){
+            for (var s = -slope; s <= slope; s++) {
                 //only account for slopes if on the ground
-                if (s != 0 && !colPlace(obj,b,0,1))
+                if (s != 0 && !colPlace(obj, b, 0, 1))
                     continue;
-                var xs = Math.cos(Math.atan2(-s,1));//1;
-                var ys = Math.sin(Math.atan2(-s,1));//-s;
+                var xs = Math.cos(Math.atan2(-s, 1));//1;
+                var ys = Math.sin(Math.atan2(-s, 1));//-s;
 
-                if (!colPlace(obj,b,xs,ys)){
+                if (!colPlace(obj, b, xs, ys)) {
                     obj.x += xs;
                     obj.y += ys;
                     //do not account for slopes later on when doing vsp
-                    if (s!=0)
+                    if (s != 0)
                         done = true;
                     break;
-                }else if (s>=slope){
-                    obj.hsp = -obj.hsp*obj.bnc;
+                } else if (s >= slope) {
+                    obj.hsp = -obj.hsp * obj.bnc;
                     break;
                 }
             }
         }
-    } else if (xsp < 0){
-        for (var i = 0; i < -xsp; i++){
-            for (var s = -slope; s <= slope; s++){
-                if (s != 0 && !colPlace(obj,b,0,1))
+    } else if (xsp < 0) {
+        for (var i = 0; i < -xsp; i++) {
+            for (var s = -slope; s <= slope; s++) {
+                if (s != 0 && !colPlace(obj, b, 0, 1))
                     continue;
-                var xs = Math.cos(Math.atan2(-s,-1));//-1;
-                var ys = Math.sin(Math.atan2(-s,-1));//-s;
+                var xs = Math.cos(Math.atan2(-s, -1));//-1;
+                var ys = Math.sin(Math.atan2(-s, -1));//-s;
 
-                if (!colPlace(obj,b,xs,ys)){
+                if (!colPlace(obj, b, xs, ys)) {
                     obj.x += xs;
                     obj.y += ys;
-                    if (s!=0)
+                    if (s != 0)
                         done = true;
                     break;
-                }else if (s>=slope){
-                    obj.hsp = -obj.hsp*obj.bnc;
+                } else if (s >= slope) {
+                    obj.hsp = -obj.hsp * obj.bnc;
                     break;
                 }
             }
         }
     }
 
-    if (ysp > 0){
-        for (var i = 0; i < ysp; i++){
-            if (!colPlace(obj,b,0,1)){
+    if (ysp > 0) {
+        for (var i = 0; i < ysp; i++) {
+            if (!colPlace(obj, b, 0, 1)) {
                 obj.y += 1;
-            }else if (!colPlace(obj,b,1,1) && !done){
+            } else if (!colPlace(obj, b, 1, 1) && !done) {
                 obj.y += 0.7;
                 obj.x += 0.7;
-            }else if (!colPlace(obj,b,-1,1) && !done){
+            } else if (!colPlace(obj, b, -1, 1) && !done) {
                 obj.y += 0.7;
                 obj.x -= 0.7;
-            }else{
+            } else {
                 obj.vsp = 0;
                 break;
             }
         }
-    } else if (ysp < 0){
-        for (var i = 0; i < -ysp; i++){
-            if (!colPlace(obj,b,0,-1)){
+    } else if (ysp < 0) {
+        for (var i = 0; i < -ysp; i++) {
+            if (!colPlace(obj, b, 0, -1)) {
                 obj.y -= 1;
-            }else if (!colPlace(obj,b,1,-1) && !done){
+            } else if (!colPlace(obj, b, 1, -1) && !done) {
                 obj.y -= 0.7;
                 obj.x += 0.7;
-            }else if (!colPlace(obj,b,-1,-1) && !done){
+            } else if (!colPlace(obj, b, -1, -1) && !done) {
                 obj.y -= 0.7;
                 obj.x -= 0.7;
-            }else{
+            } else {
                 obj.vsp = 0;
                 break;
             }

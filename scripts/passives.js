@@ -1,6 +1,32 @@
 /**
  * Created by shrenilpatel on 2016-02-11.
  */
+var PRIO = {
+    HIGHEST: 0,
+    SPECIAL: 1,
+    HIGH_ULT: 2,
+    ULTIMATE: 3,
+    LOW_ULT:4,
+    RARE: 5,
+    NORMAL: 7,
+    LOW: 9,
+    JUNK: 10
+};
+
+var DTYPE = {
+    none: [-1, -1, -1],
+    raw: [0, 0, 0],
+    basic: [1, 1, 1],
+
+    piercing: [0, 0, 1],
+    slashing: [0, 1, 1],
+    blunt: [0, 1, 0],
+
+    natural: [1, 1, 0],
+    energy: [1, 0, 0],
+    ethereal: [1, 0, 1]
+};
+
 var LOC = {
     none: 0,
     constant: 1, //none
@@ -10,6 +36,9 @@ var LOC = {
 
     att_before_mit: 4, //dmg, type
     def_before_mit: 5, //dmg, type
+
+    att_alter: 19,//oldlist, newlist, buff
+    def_alter: 20,//oldlist, newlist, buff
 
     inc_any_buff: 6, //buff
     out_any_buff: 7, //buff
@@ -29,7 +58,6 @@ var LOC = {
 
     inc_heal: 17, //heal
     out_heal: 18, //heal
-
 };
 
 var BTYPE = {
@@ -54,12 +82,12 @@ function applyPassive(source, target, p) {
 function removePassive(source, target, p) {
     normal = true;
 
-    p = executeWithLoc(LOC.def_any_expire, source, target, [p])[0];
+    p = executeWithLoc(LOC.def_any_expire, source, target, {buff: p}).buff;
 
     if (p.buff === BTYPE.buff) {
-        p = executeWithLoc(LOC.def_buff_expire, source, target, [p])[0];
+        p = executeWithLoc(LOC.def_buff_expire, source, target, {buff: p}).buff;
     } else if (p.buff === BTYPE.debuff) {
-        p = executeWithLoc(LOC.def_debuff_expire, source, target, [p])[0];
+        p = executeWithLoc(LOC.def_debuff_expire, source, target, {buff: p}).buff;
     }
 
     if (normal) {
@@ -86,7 +114,7 @@ function tickWithLoc(loc, source, target, list) {
 }
 
 function dblexeWithLocs(locSrc, locTar, source, target, list) {
-    plist = [];
+    var plist = [];
 
     for (var i = 0; i < source.passives.length; i++) {
         var p = source.passives[i];
@@ -113,6 +141,39 @@ function dblexeWithLocs(locSrc, locTar, source, target, list) {
     return list;
 }
 
+function dblexeWithLocsAlt(locSrc, locTar, locSrcAlt,
+                           locTarAlt, source, target, list) {
+    var plist = [];
+    var clist, nlist;
+
+    for (var i = 0; i < source.passives.length; i++) {
+        var p = source.passives[i];
+        if (contains(p.loc, locSrc)) {
+            plist.push([p, source, target, locSrc]);
+        }
+    }
+
+    for (i = 0; i < target.passives.length; i++) {
+        p = target.passives[i];
+        if (contains(p.loc, locTar)) {
+            plist.push([p, target, source, locTar]);
+        }
+    }
+
+    plist.sort(passiveCompareDbl);
+
+    for (i = 0; i < plist.length; i++) {
+        clist = list;
+        p = plist[i];
+        currrent_loc = p[3];
+        nlist = p[0].process(p[1], p[2], list);
+        list = dblexeWithLocs(locSrcAlt, locTarAlt, source, target,
+            {oldlist: clist, newlist: nlist, buff: p[0]}).newlist;
+    }
+
+    return list;
+}
+
 function executeWithLoc(loc, source, target, list) {
     currrent_loc = loc;
     //source.passives.sort(passiveCompare);
@@ -128,8 +189,8 @@ function executeWithLoc(loc, source, target, list) {
 function p_passive(name, loc, buff, cat, dur, tick) {
     this.id = ID++;
     this.loc = loc || [LOC.constant];
-    this.prio = 5;
-    this.tick = tick || ~~(targ_fps/2);
+    this.prio = PRIO.NORMAL;
+    this.tick = tick || ~~(targ_fps / 2);
     this.dur = ~~(dur * targ_fps) || -1;
     this.source = null;
     this.buff = buff || BTYPE.neutral;
@@ -162,14 +223,27 @@ function passiveCompareDbl(a, b) {
 function p_UnmitigatedDamage() {
     p_passive.call(this,
         "Unmitigated Damage",
-        [LOC.att_after_mit],
+        [LOC.att_alter],
         BTYPE.buff,
         ['unique']
     );
+    this.prio = PRIO.SPECIAL;
 
     //dmg, mit, type
     this.process = function (source, target, list) {
-        return [list[0], list[0], DTYPE.raw];
+        if (list.buff.prio < this.prio) {
+            return {oldlist: list.oldlist, newlist: list.newlist, buff: list.buff};
+        }
+
+        list.oldlist.type = DTYPE.raw;
+        list.newlist.type = DTYPE.raw;
+        list.oldlist.mit = list.oldlist.dmg;
+        list.newlist.mit = list.newlist.dmg;
+
+        if (list.oldlist.mit > list.newlist.mit) {
+            return {oldlist: list.oldlist, newlist: list.oldlist, buff: list.buff};
+        }
+        return {oldlist: list.oldlist, newlist: list.newlist, buff: list.buff};
     }
 }
 
@@ -177,15 +251,31 @@ function p_UnmitigatedDamage() {
 function p_Invincible() {
     p_passive.call(this,
         "Invincible",
-        [LOC.def_before_mit],
+        [LOC.def_after_mit],
         BTYPE.buff,
         ['unique']
     );
-    this.prio = 1;
+    this.prio = PRIO.HIGH_ULT;
 
-    //dmg, type
+    //dmg, mit, type
     this.process = function (source, target, list) {
-        return [0, DTYPE.raw];
+        return {dmg: 0, mit: 0, type: DTYPE.none};
+    }
+}
+
+//reduces incoming damage by percent
+function p_ProtectionPct(reduction) {
+    p_passive.call(this,
+        "Invincible",
+        [LOC.def_after_mit],
+        BTYPE.buff,
+        ['unique']
+    );
+    this.val = 1 - reduction;
+
+    //dmg, mit, type
+    this.process = function (source, target, list) {
+        return {dmg: list.dmg * (this.val), mit: list.mit * (this.val), type: list.type};
     }
 }
 
@@ -201,11 +291,11 @@ function p_DoT(dmg, dur, tick, type) {
     );
 
     this.dmg = dmg;
-    this.type = type || DTYPE.eth_mjk;
+    this.type = type || DTYPE.natural;
 
     //[none]
     this.process = function (source, target) {
         damage(this.source, target, this.dmg, this.type);
-        return [];
+        return {};
     }
 }

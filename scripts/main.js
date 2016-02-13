@@ -19,14 +19,14 @@ require("scripts/camera.js");
 require("scripts/passives.js");
 
 var fps = {
-    startTime : 0,
-    frameNumber : 0,
-    getFPS : function(){
+    startTime: 0,
+    frameNumber: 0,
+    getFPS: function () {
         this.frameNumber++;
         var d = new Date().getTime(),
-        currentTime = ( d - this.startTime ) / 1000,
-        result = Math.floor( ( this.frameNumber / currentTime ) );
-        if( currentTime > 1 ){
+            currentTime = ( d - this.startTime ) / 1000,
+            result = Math.floor(( this.frameNumber / currentTime ));
+        if (currentTime > 1) {
             this.startTime = new Date().getTime();
             this.frameNumber = 0;
         }
@@ -61,10 +61,10 @@ c = null;
 //how long key has been held down
 
 /*var KEYS = {
-  vk_up : 38,
-  vk_down: 40,
-  vk_left : {value: 2, name: "Large", code: "L"}
-};*/
+ vk_up : 38,
+ vk_down: 40,
+ vk_left : {value: 2, name: "Large", code: "L"}
+ };*/
 
 key = [];
 key_press = [];
@@ -72,24 +72,13 @@ key_release = [];
 key_rel = [];
 
 //up_key, down_key, left_key, right_key, space_key, space_key, space_key
-key_codes = [38, 40, 37, 39, 32 ,32 ,32]; // key codes
-
-var DTYPE = {
-    raw : [0,0,0],
-    basic : [1,1,1],
-    pierce : [1,0,0],
-    slash : [1,1,0],
-    blunt : [0,1,0],
-    phy_mjk : [0,1,1],
-    ene_mjk : [0,0,1],
-    eth_mjk : [1,0,1]
-};
+key_codes = [38, 40, 37, 39, 32, 32, 32]; // key codes
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event loop
 ////////////////////////////////////////////////////////////////////////////////
 
-window.onload = function() {
+window.onload = function () {
 
     //set keys
     for (var i = 0; i < key_codes.length; i++) {
@@ -101,35 +90,39 @@ window.onload = function() {
 
     //get & set canvas
     canvas = document.getElementById('screen')
-    c = canvas.getContext('2d');
+    c = canvas.getContext("2d", {alpha: false})
     canvas.width = screen_width;
     canvas.height = screen_height;
+    c.imageSmoothingEnabled = false;
 
     cam = new Camera(0.15);
 
 
-    objects.push(new Unit(300,400,0));
-    objects.push(new Unit(500,400,1));
+    objects.push(new Unit(300, 400, 0));
+    objects.push(new Unit(500, 400, 1));
 
-    console.log(mitigation([750,500,0],[0.5,1.0,0]));
+    console.log(mitigation([750, 500, 0], [0.5, 1.0, 0]));
 
     //MAIN GAME LOOP
-    setInterval(function() {
+    setInterval(function () {
         time++;
         f.innerHTML = "FPS: " + fps.getFPS();
         //save canvas settings
         c.save();
+        c.translate(0.5,0.5);
         //clear screen & draw background
         //c.clearRect(0,0,screen_width,screen_height);
-        c.fillStyle = "DarkBlue";
-        c.fillRect(0,0,screen_width,screen_height);
+        c.fillStyle = "darkblue";
+        c.fillRect(0, 0, screen_width, screen_height);
 
         //draw objects relative to centered camera
         //c.translate(cam.width/2-cam.cx,cam.height/2-cam.cy);
 
         //draw objects TODO: draw objects by depth property
-        for (i = 0; i < objects.length; i++) {
-            var o = objects[i];
+
+        var objs = objects.clone();
+        for (i = 0; i < objs.length; i++) {
+            var o = objs[i];
             o.update();
             o.draw();
         }
@@ -138,7 +131,7 @@ window.onload = function() {
         c.restore();
 
         //reset keys
-        for (var i = 0; i < key_press.length; i++){
+        for (var i = 0; i < key_press.length; i++) {
             key_press[i] = false;
             key_release[i] = false;
         }
@@ -156,7 +149,7 @@ function actionForEvent(e) {
     return null;
 }
 
-window.onkeydown = function(e) {
+window.onkeydown = function (e) {
     var action = actionForEvent(e);
     key[action] = true;
     if (key_rel[action]) {
@@ -166,7 +159,7 @@ window.onkeydown = function(e) {
 
 };
 
-window.onkeyup = function(e) {
+window.onkeyup = function (e) {
     var action = actionForEvent(e);
     key[action] = false;
     key_release[action] = true;
