@@ -6,25 +6,35 @@ var PRIO = {
     SPECIAL: 1,
     HIGH_ULT: 2,
     ULTIMATE: 3,
-    LOW_ULT:4,
+    LOW_ULT: 4,
     RARE: 5,
     NORMAL: 7,
     LOW: 9,
     JUNK: 10
 };
 
+var damageType = function (arr, color, name) {
+    var array = arr || [];
+    for (var i = 0; i < array.length; i++)
+        this[i] = array[i];
+
+    this.color = color;
+    this.name = name;
+    this.length = array.length;
+};
+
 var DTYPE = {
-    none: [-1, -1, -1],
-    raw: [0, 0, 0],
-    basic: [1, 1, 1],
+    none: new damageType([-1, -1, -1], "rgba(0,0,0,0)", "None"),
+    raw: new damageType([0, 0, 0], "#000", "Raw"),
+    basic: new damageType([1, 1, 1], "#fff", "Basic"),
 
-    piercing: [0, 0, 1],
-    slashing: [0, 1, 1],
-    blunt: [0, 1, 0],
+    piercing: new damageType([0, 0, 1], "RoyalBlue", "Pierce"),
+    slashing: new damageType([0, 1, 1], "Turquoise", "Slash"),
+    blunt: new damageType([0, 1, 0], "#32CD32", "Blunt"),
 
-    natural: [1, 1, 0],
-    energy: [1, 0, 0],
-    ethereal: [1, 0, 1]
+    natural: new damageType([1, 1, 0], "Gold", "Natural"),
+    energy: new damageType([1, 0, 0], "#ff3300", "Energy"),
+    ethereal: new damageType([1, 0, 1], "#ff00ff", "Ethereal")
 };
 
 var LOC = {

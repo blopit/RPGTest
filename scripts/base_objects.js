@@ -34,27 +34,26 @@ function checkOnScreen(o, s) {
     return o.on_screen;
 }
 
-function DmgText(x, y, value, life, col, dir) {
+function BattleText(x, y, value, life, col, border) {
     Display.call(this, x + getRandomRangeInt(-8, 8), y + getRandomRangeInt(-8, 8), 1, 1);
     this.maxlife = this.life = life;
-    this.val = Math.round(value);
+    this.val = String(value).split("").join(String.fromCharCode(8202));
     this.col = col;
-    this.hsp = 0;//dir || getRandomRangeInt(-1, 1);
+    this.hsp = 0; //dir || getRandomRangeInt(-1, 1);
     this.vsp = getRandomRangeInt(-1, -1);
+    this.bord = border;
 
     this.draw = function () {
         //c.globalAlpha = this.life/this.maxlife;
-        var col = defToColor(this.col);
-        var text = String(this.val).split("").join(String.fromCharCode(8202))
+        var col = this.col;
+        var text = this.val;
         c.font = "700 italic 12px Roboto Mono";
         c.lineWidth = 3;
         c.textAlign = "center";
-        c.strokeStyle = "black";
+        c.strokeStyle = this.bord;
 
         if (col === "#000") {
             c.strokeStyle = "white";
-        } else {
-            c.strokeStyle = "black";
         }
 
         c.fillStyle = col;
@@ -90,11 +89,11 @@ function Unit(x, y, faction) {
     this.hp = this.maxhp;
     this.dhp = this.maxhp;
 
-    this.resource = 'mana';
+    this.resource = RES.mana;
 
     this.att = [1.0, 0, 0];
-    this.def = [getRandomRangeInt(50, 250), getRandomRangeInt(50, 250), getRandomRangeInt(50, 250)];
-    //this.def = choose([[60,60,60],[400,400,400]]);
+    this.def = [getRandomRangeInt(500, 1500), getRandomRangeInt(500, 1500), getRandomRangeInt(500, 1500)];
+    //this.def = choose([[50,1000,50],[1000,1000,50]]);
 
     this.passives = [];
     this.crowd_ctrl = [];
@@ -113,10 +112,18 @@ function Unit(x, y, faction) {
     if (faction != 0) {
         //applyPassive(this, this, new p_UnmitigatedDamage());
     } else {
-        //applyPassive(this, this, new p_Invincible());
+        applyPassive(this, this, new p_Invincible());
        // applyPassive(this, this, new p_ProtectionPct(0.5));
     }
 
+    console.log([~~(100*inv_mitigation(this.def, DTYPE.energy)),
+        ~~(100*inv_mitigation(this.def, DTYPE.ethereal)),
+        ~~(100*inv_mitigation(this.def, DTYPE.piercing)),
+        ~~(100*inv_mitigation(this.def, DTYPE.slashing)),
+        ~~(100*inv_mitigation(this.def, DTYPE.blunt)),
+        ~~(100*inv_mitigation(this.def, DTYPE.natural))
+        ]
+    );
 
     this.dhp = 0;
     this.faction = faction;
@@ -141,7 +148,7 @@ function Unit(x, y, faction) {
         c.lineWidth = 1;
 
         c.fillStyle = defToColor(this.def);
-        var w = 2 + 8 * averageCol(this.def, DTYPE.basic) / 250;//(1 - mitigation(this.def, DTYPE.basic)) * 16;
+        var w = 2 + 8 * averageCol(this.def, DTYPE.basic) / 2500;//(1 - mitigation(this.def, DTYPE.basic)) * 16;
         roundRect(c, this.x - w * 1.5 - 2, this.y - 32 - w + 2, wid + w * 3 + 4,
             16 + w * 2 - 4, corner + w / 2, true, false);
 
@@ -183,7 +190,18 @@ function Unit(x, y, faction) {
 
         c.globalAlpha = 1.0;
 
-        c.fillText(~~this.hp + " / " + ~~this.maxhp + " (" + this.def + ")", this.x, this.y - 48);
+        c.fillText(~~this.hp + " / " + ~~this.maxhp + " (" + this.def + ")", this.x, this.y - 64);
+
+
+
+        /*c.fillText(
+            + "," +
+            ~~(100*mitigation(this.def, DTYPE.ethereal)) + "," +
+            ~~(100*mitigation(this.def, DTYPE.piercing)) + "," +
+            ~~(100*mitigation(this.def, DTYPE.slashing)) + "," +
+            ~~(100*mitigation(this.def, DTYPE.blunt)) + "," +
+            ~~(100*mitigation(this.def, DTYPE.natural)) , this.x, this.y - 48 )*/
+
     };
 
     this.update = function () {

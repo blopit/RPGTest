@@ -1,9 +1,9 @@
 function basicMit(def) {
-    var c = 100;
+    var c = 1000;
     return c / (def + c);
 }
 
-function averageCol(def,type) {
+function averageCol(def, type) {
     var val = 0;
 
     val += def[0] * type[0];
@@ -14,13 +14,22 @@ function averageCol(def,type) {
     return val;
 }
 
+function inv_mitigation(def, type) {
+    return 1 - mitigation(def, type);
+}
+
 function mitigation(def, type) {
     normal = true;
-    return basicMit(averageCol(def,type));
+
+    return basicMit(averageCol(def, type));
 }
 
 function heal(source, target, value) {
+    normal = true;
 
+    target.hp += value;
+    objects.push(new BattleText(target.cx, target.cy - 64, ~~value,
+        40, "#fff", "#000"));
 }
 
 function damage(source, target, damage, type) {
@@ -43,18 +52,20 @@ function damage(source, target, damage, type) {
     mitdmg = e.mit;
     type = e.type;
 
-    objects.push(new DmgText(target.cx, target.cy - 64, mitdmg,
-        40, type));
+
 
     if (mitdmg == 0) {
-        //invincible
-    }else if (mitdmg < 0) {
+        objects.push(new BattleText(target.cx, target.cy - 64, "Invulnerable",
+            40, "PaleGoldenRod", "GoldenRod"));
+        return;
+    } else if (mitdmg < 0) {
         heal(source, target, -mitdmg);
         return;
     }
-
     if (normal) {
         target.hp -= mitdmg;
+        objects.push(new BattleText(target.cx, target.cy - 64, ~~mitdmg,
+            40, type.color, "#000"));
     }
 }
 
@@ -94,11 +105,11 @@ function roundRect(c, x, y, w, h, r, fill, stroke) {
     if (w < 3) stroke = false;
 
     c.beginPath();
-    c.moveTo(x+r, y);
-    c.arcTo(x+w, y,   x+w, y+h, r);
-    c.arcTo(x+w, y+h, x,   y+h, r);
-    c.arcTo(x,   y+h, x,   y,   r);
-    c.arcTo(x,   y,   x+w, y,   r);
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
     c.closePath();
     if (fill) {
         c.fill();
@@ -151,7 +162,6 @@ function defToColor(col) {
     if (col[0] == -1) {
         return "rgba(0,0,0,0)";
     }
-    console.log(col);
 
     var max = Math.max.apply(null, col);
     if (max === 0)
