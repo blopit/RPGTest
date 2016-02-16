@@ -25,15 +25,21 @@ function mitigation(def, type) {
 }
 
 function heal(source, target, value) {
+    value = Math.max(value, 1);
     normal = true;
 
+    if (value < 0) {
+        damage(source, target, DTYPE.ethereal);
+        return;
+    }
     target.hp += value;
     objects.push(new BattleText(target.cx, target.cy - 64, ~~value,
-        40, "#fff", "#000"));
+        40, "#fff", "#00ff00"));
 }
 
 function damage(source, target, damage, type) {
-    var type = type || DTYPE.basic;
+    type = type || DTYPE.basic;
+    damage = Math.max(damage, 1);
     var mitdmg = 0;
     normal = true;
 
@@ -52,8 +58,6 @@ function damage(source, target, damage, type) {
     mitdmg = e.mit;
     type = e.type;
 
-
-
     if (mitdmg == 0) {
         objects.push(new BattleText(target.cx, target.cy - 64, "Invulnerable",
             40, "PaleGoldenRod", "GoldenRod"));
@@ -66,6 +70,7 @@ function damage(source, target, damage, type) {
         target.hp -= mitdmg;
         objects.push(new BattleText(target.cx, target.cy - 64, ~~mitdmg,
             40, type.color, "#000"));
+        target.hpbar.li = 1.0;
     }
 }
 

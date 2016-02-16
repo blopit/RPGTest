@@ -74,6 +74,92 @@ function BattleText(x, y, value, life, col, border) {
     };
 }
 
+function HealthBar(x, y, width, height, source) {
+    Display.call(this, 0, 0, width, height);
+    this.xoff = x;
+    this.yoff = y;
+    this.src = source;
+    this.li = 0.0;
+    this.dhp = this.src.hp;
+
+    this.update = function () {
+        this.x = this.src.x;
+        this.y = this.src.y;
+
+        if (this.li > 0) {
+            this.li -= 0.05;
+        } else {
+            this.dhp += (this.src.hp - this.dhp) * 0.03;
+        }
+        if (this.li < 0) {
+            this.li = 0;
+        }
+
+
+    }
+
+    this.draw = function () {
+        var corner = 4;
+        c.strokeStyle = "black";
+        c.lineWidth = 3;
+
+        c.fillStyle = defToColor(this.src.def);
+        var w = 2 + 8 * averageCol(this.src.def, DTYPE.basic) / 2500;
+        roundRect(c, this.x + this.xoff - w * 1.5 - 2, this.y + this.yoff - w + 1, this.width + w * 3 + 4,
+            this.height + w * 2 - 2, corner + w / 2, true, false);
+
+        c.fillStyle = "black";
+        roundRect(c, this.x + this.xoff - 2, this.y + this.yoff, this.width + 4, this.height, corner * 1.5, true, true);
+
+        c.fillStyle = "red";
+        c.fillRect(this.x + this.xoff, this.y + this.yoff + 2,
+            this.width * this.dhp / this.src.maxhp, this.height - 4);
+
+        c.fillStyle = "#44D044";
+        c.fillRect(this.x + this.xoff, this.y + this.yoff + 2,
+            this.width * this.src.hp / this.src.maxhp, this.height - 4);
+
+        c.globalAlpha = this.li * 0.5;
+        c.fillStyle = "white";
+        c.fillRect(this.x + this.xoff, this.y + this.yoff + 2,
+            this.width * this.src.hp / this.src.maxhp, this.height - 4);
+        c.globalAlpha = 1.0;
+
+        c.fillStyle = "black";
+        roundRect(c, this.x + this.xoff - 2, this.y + this.yoff,
+            this.width + 4, this.height, corner * 1.5, false, true);
+
+        //c.globalAlpha = 0.25;
+
+        var j = 30;
+        while (~~(this.src.maxhp / j) > 10) {
+            j *= 10;
+
+            var lg = log(j, 20);
+            c.lineWidth = 1;//lg - 1;
+            var q = lg / log(this.src.maxhp, 10);
+            if (q < 0.25) {
+                continue;
+            }
+
+            c.globalAlpha = q * 0.5;
+
+            for (var i = 0; i < ~~(this.src.hp / j); i++) {
+                var l = (this.width * j / this.src.maxhp) * (i + 1);
+                c.beginPath();
+                c.moveTo(this.x + l, this.y + this.yoff);
+                c.lineTo(this.x + l, this.y + this.yoff + this.height);
+                c.stroke();
+            }
+
+        }
+
+        c.globalAlpha = 1.0;
+
+        c.fillText(~~this.src.hp + " / " + ~~this.src.maxhp + " (" + this.src.def + ")", this.x, this.y - 64);
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // object PARENT / all objects that are not entities (powerups, projectiles, blocks)
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,19 +168,17 @@ var RES = {
 };
 
 function Unit(x, y, faction) {
-    Display.call(this, x, y, 64, 64);
+    Display.call(this, x, y, 32, 32);
     this.obj = 'unit';
 
     this.maxhp = 1000 + 5000 * Math.random();
     this.hp = this.maxhp;
-    this.dhp = this.maxhp;
-
-    this.resource = RES.mana;
-
     this.att = [1.0, 0, 0];
     this.def = [getRandomRangeInt(500, 1500), getRandomRangeInt(500, 1500), getRandomRangeInt(500, 1500)];
-    //this.def = choose([[50,1000,50],[1000,1000,50]]);
+    this.resource = RES.mana;
 
+    this.hpbar = new HealthBar(0, -32, 100, 16, this);
+    objects.push(this.hpbar);
     this.passives = [];
     this.crowd_ctrl = [];
 
@@ -104,24 +188,28 @@ function Unit(x, y, faction) {
     this.in_air = false;
     this.air_dx = 0;
     this.air_dy = 0;
-    this.air_z = 0;
 
-    this.movespeed = 325;
+    this.z = 0;
+    this.hsp = 0;
+    this.vsp = 0;
+    this.ground_fric = 0.8;
+    
+    this.movespeed = 325; //>-64
     this.attspeed = 1.0;
 
     if (faction != 0) {
         //applyPassive(this, this, new p_UnmitigatedDamage());
     } else {
-        applyPassive(this, this, new p_Invincible());
-       // applyPassive(this, this, new p_ProtectionPct(0.5));
+        //applyPassive(this, this, new p_Invincible());
+        // applyPassive(this, this, new p_ProtectionPct(0.5));
     }
 
-    console.log([~~(100*inv_mitigation(this.def, DTYPE.energy)),
-        ~~(100*inv_mitigation(this.def, DTYPE.ethereal)),
-        ~~(100*inv_mitigation(this.def, DTYPE.piercing)),
-        ~~(100*inv_mitigation(this.def, DTYPE.slashing)),
-        ~~(100*inv_mitigation(this.def, DTYPE.blunt)),
-        ~~(100*inv_mitigation(this.def, DTYPE.natural))
+    console.log([~~(100 * inv_mitigation(this.def, DTYPE.energy)),
+            ~~(100 * inv_mitigation(this.def, DTYPE.ethereal)),
+            ~~(100 * inv_mitigation(this.def, DTYPE.piercing)),
+            ~~(100 * inv_mitigation(this.def, DTYPE.slashing)),
+            ~~(100 * inv_mitigation(this.def, DTYPE.blunt)),
+            ~~(100 * inv_mitigation(this.def, DTYPE.natural))
         ]
     );
 
@@ -132,107 +220,95 @@ function Unit(x, y, faction) {
         if (this.hp <= 0) {
             this.hp = 0;
         }
-        if (this.dhp <= 0) {
-            this.dhp = 0;
-        }
 
         c.fillStyle = "red";
         if (this.faction != 0)
             c.fillStyle = "blue";
 
         c.fillRect(this.x, this.y, this.width, this.height);
-
-        var wid = 100;
-        var corner = 4;
-        c.strokeStyle = "black";
-        c.lineWidth = 1;
-
-        c.fillStyle = defToColor(this.def);
-        var w = 2 + 8 * averageCol(this.def, DTYPE.basic) / 2500;//(1 - mitigation(this.def, DTYPE.basic)) * 16;
-        roundRect(c, this.x - w * 1.5 - 2, this.y - 32 - w + 2, wid + w * 3 + 4,
-            16 + w * 2 - 4, corner + w / 2, true, false);
-
-        c.fillStyle = "black";
-        roundRect(c, this.x - 2, this.y - 32, wid + 4, 16, corner * 1.5, true, true);
-
-        c.fillStyle = "red";
-        roundRect(c, this.x, this.y - 32 + 2,
-            wid * this.dhp / this.maxhp, 16 - 4, corner, true, false);
-
-        c.fillStyle = "lime";
-        roundRect(c, this.x, this.y - 32 + 2,
-            wid * this.hp / this.maxhp, 16 - 4, corner, true, true);
-
-        c.globalAlpha = 0.5;
-
-        var j = 30;
-        while (~~(this.maxhp / j) > 10) {
-            j *= 10;
-
-            var lg = log(j, 10);
-            c.lineWidth = 1;//lg - 1;
-            var q = lg / log(this.maxhp, 10);
-            if (q < 0.25) {
-                continue;
-            }
-
-            c.globalAlpha = q;
-
-            for (var i = 0; i < ~~(this.hp / j); i++) {
-                var l = (wid * j / this.maxhp) * (i + 1);
-                c.beginPath();
-                c.moveTo(this.x + l, this.y - 32 + lg + 1);
-                c.lineTo(this.x + l, this.y - 16 - lg - 1);
-                c.stroke();
-            }
-
-        }
-
-        c.globalAlpha = 1.0;
-
-        c.fillText(~~this.hp + " / " + ~~this.maxhp + " (" + this.def + ")", this.x, this.y - 64);
-
-
-
-        /*c.fillText(
-            + "," +
-            ~~(100*mitigation(this.def, DTYPE.ethereal)) + "," +
-            ~~(100*mitigation(this.def, DTYPE.piercing)) + "," +
-            ~~(100*mitigation(this.def, DTYPE.slashing)) + "," +
-            ~~(100*mitigation(this.def, DTYPE.blunt)) + "," +
-            ~~(100*mitigation(this.def, DTYPE.natural)) , this.x, this.y - 48 )*/
-
-    };
+    }
 
     this.update = function () {
         this.cx = this.x + this.width / 2;
         this.cy = this.y + this.height / 2;
 
-        this.dhp += (this.hp - this.dhp) * 0.03;
-
         tickWithLoc(LOC.constant, this, this, []);
 
-        if (key_press[0] == true) {
+        if (key_press[KEY.vk_up] == true) {
             for (var i = 0; i < objects.length; i++) {
                 var o = objects[i];
                 if (o.obj === 'unit') {
                     if (o.faction != this.faction) {
+                        damage(this, o, 200,
+                            choose([DTYPE.piercing, DTYPE.energy, DTYPE.blunt,
+                                DTYPE.ethereal, DTYPE.natural, DTYPE.slashing]));
 
-                        if (this.faction == -1) {
-                            //damage(this, o, 1000, [Math.random(), Math.random(), Math.random()]);
-                            //applyPassive(this, o, new p_DoT(50, 2.0));
-                        } else {
-                            damage(this, o, 200,
-                                choose([DTYPE.piercing, DTYPE.energy, DTYPE.blunt,
-                                    DTYPE.ethereal, DTYPE.natural, DTYPE.slashing]));
-                        }
+                    }
+                }
+            }
+        } else if (key_press[KEY.vk_down] == true) {
+            for (var i = 0; i < objects.length; i++) {
+                var o = objects[i];
+                if (o.obj === 'unit') {
+                    if (o.faction != this.faction) {
+                        heal(this, o, 200);
                     }
                 }
             }
         }
+
     };
 }
 
+function ControlledUnit(x, y, faction) {
+    Unit.call(this, x, y, faction);
+
+    this.moveXvec = 0;
+    this.moveYvec = 0;
+
+    this.update = function () {
+        this.cx = this.x + this.width / 2;
+        this.cy = this.y + this.height / 2;
+
+        this.moveXvec = 0;
+        this.moveYvec = 0;
+        if (key[KEY.vk_up]) {
+            this.moveYvec -= 1;
+        }
+        if (key[KEY.vk_down]) {
+            this.moveYvec += 1;
+        }
+        if (key[KEY.vk_left]) {
+            this.moveXvec -= 1;
+        }
+        if (key[KEY.vk_right]) {
+            this.moveXvec += 1;
+        }
+
+        if (this.moveXvec != 0 || this.moveYvec != 0) {
+            var ang = anglePoints(0, 0, this.moveXvec, this.moveYvec);
+            this.hsp += Math.cos(ang) * this.ground_fric;
+            this.vsp += Math.sin(ang) * this.ground_fric;
+        }
+
+        var a = anglePoints(0, 0, this.hsp, this.vsp);
+        var d = distPoints(0, 0, this.hsp, this.vsp);
+
+        if (d > this.movespeed / 60) {
+            d = this.movespeed / 60;
+        } else if (this.moveXvec == 0 && this.moveYvec == 0) {
+            d = fric(d, this.ground_fric);
+        }
+        console.log(a * 180 / Math.PI);
+        this.hsp = Math.cos(a) * d;
+        this.vsp = Math.sin(a) * d;
+
+        this.x += this.hsp;
+        this.y += this.vsp;
+
+
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // camera boundary

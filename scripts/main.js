@@ -73,6 +73,12 @@ key_rel = [];
 
 //up_key, down_key, left_key, right_key, space_key, space_key, space_key
 key_codes = [38, 40, 37, 39, 32, 32, 32]; // key codes
+var KEY = {
+    vk_up: 0,
+    vk_down: 1,
+    vk_left: 2,
+    vk_right: 3
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Event loop
@@ -99,7 +105,7 @@ window.onload = function () {
 
 
     objects.push(new Unit(300, 400, 0));
-    objects.push(new Unit(500, 400, 1));
+    objects.push(new ControlledUnit(500, 400, 1));
 
     console.log(mitigation([750, 500, 0], [0.5, 1.0, 0]));
 
@@ -109,7 +115,7 @@ window.onload = function () {
         f.innerHTML = "FPS: " + fps.getFPS();
         //save canvas settings
         c.save();
-        c.translate(0.5,0.5);
+        c.translate(0.5, 0.5);
         //clear screen & draw background
         //c.clearRect(0,0,screen_width,screen_height);
         c.fillStyle = "darkblue";
