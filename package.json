@@ -1,0 +1,16 @@
+{
+    "main": "nwjs.app/Contents/Resources/index.html",
+    "name": "curvatron",
+    "window": {
+        "title": "Position",
+        "width": 800,
+        "height": 600,
+        "fullscreen": false,
+        "toolbar": true,
+        "resizable": false,
+        "position": "center",
+        "frame": true
+    },
+    "version": "0.1.0",
+    "chromium-args": "--gpu-rasterization-msaa-sample-count 0 --disable-composited-antialiasing --in-process-gpu --disable-transparency"
+}
